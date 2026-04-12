@@ -9,8 +9,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import joblib
 import re
-
-from newspaper import Article
+import trafilatura
 
 # Sunucu baslatma
 app = FastAPI(title='News Category Prediction API')
@@ -53,39 +52,26 @@ def predict_category(request: NewsRequest):
 def ana_sayfa():
     return {"mesaj": "Haber Tahmin API'si Çalışıyor!"}
 
-
-#-----------------haberleri cekmek icin-----------------
-
+#haberleri cekmek icin
 class UrlRequest(BaseModel):
     url: str 
     
 @app.post("/get_full_text")
 def full_text(request: UrlRequest):
     try:
-        article = Article(request.url)
-        article.download()
-        article.parse()
+        downloaded = trafilatura.fetch_url(request.url)
+        text = trafilatura.extract(downloaded)
         
-        #haberin tam metini ve basligini geri gonderme
-        return{
-            "statu": "successful",
-            "full_text": article.text
+        if text and len(text.strip()) > 50:
+            return {"statu": "successful", "full_text": text}
+        else:
+            return {
+                "statu": "Error", 
+                "message": "Site blocked the request."
             }
     except Exception as e:
-        return {
-            "statu": "Error",
-            "message":"The news article could not be retrieved; the site may be blocked."
-            }
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+        return {"statu": "Error", "message": str(e)}
+        
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=7860)
